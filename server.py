@@ -12,14 +12,7 @@ import restful_urls
 
 # modules 模块名称列表
 modules = [
-    'asset',
-    'certificate',
-    'idc',
-    'ipinfo',
-    'tools',
-    'workflow',
-    'system',
-    'terminal',
+
 ]
 
 app = Flask(__name__, static_url_path='/pluginserver/ops/static')
@@ -36,14 +29,14 @@ methods = ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"]
 
 for i in modules:
     for j in getattr(importlib.import_module('%s.urls' % i), 'urls'):
-        url_prefix = "/pluginserver/ops/%s/%s" % (i, j[0])
+        url_prefix = "/%s/%s" % (i, j[0])
         app.add_url_rule(url_prefix, url_prefix, dispatch(j), methods=methods)
 
 for i in restful_urls.urls:
     _methods = methods
     if len(i) == 4:
         _methods = i[3]
-    url_prefix = "/pluginserver/ops/%s" % i[0]
+    url_prefix = "/%s" % i[0]
     app.add_url_rule(url_prefix, url_prefix, dispatch(i, True), methods=_methods)
 
 

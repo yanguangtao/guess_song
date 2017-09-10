@@ -2,7 +2,6 @@
 # -*- coding: UTF-8 -*-
 
 import redis
-
 from .my_log import logger
 from conf import settings
 
@@ -60,3 +59,5 @@ redis_obj = Redis_db(
         port=settings.REDIS_PORT,
         db=settings.REDIS_DB,
         pwd=settings.REDIS_PWD)
+
+

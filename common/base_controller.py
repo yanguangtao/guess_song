@@ -2,11 +2,13 @@
 # -*-coding:utf-8-*-
 
 from hashlib import sha1
-
+import json
 import requests
 from sqlalchemy import desc, inspect, func
 
+from common import error_msg
 from common.my_log import logger
+from common.sqlalchemy_ctl import db
 from conf import settings
 
 
@@ -14,11 +16,27 @@ class BaseController(object):
     def __init__(self, model):
         self._model = model
         self.model = model
+        self._ret, self._msg = error_msg.SUCCESS
+        self._data = {}
+        self._resp_json = ""
 
     def _clean_value(self, value):
         if isinstance(value, (str, unicode)):
             return value.strip()
         return value
+
+    def _result(self, ret_msg=None, data=None):
+        if not ret_msg is None:
+            self._ret, self._msg = ret_msg
+        if not data is None:
+            self._data = data
+        self._resp_json = json.dumps({
+            "ret": self._ret,
+            "msg": self._msg,
+            "data": self._data
+            })
+        self._db_session.close()
+        return self._resp_json
 
     def _filter_value(self, kwargs):
         return filter(lambda x: (
@@ -34,7 +52,7 @@ class BaseController(object):
         return password
 
     def do_filter(self, **kwargs):
-        session = kwargs.get("session", None)
+        session = db
         if session is None:
             return None
         pk = kwargs.get("id", None)
@@ -60,7 +78,7 @@ class BaseController(object):
             return None
 
     def filter_item(self, **kwargs):
-        session = kwargs.get("session", None)
+        session = db
         if session is None:
             return None, None
         start = int(kwargs.get("start", -1))
@@ -94,7 +112,7 @@ class BaseController(object):
             return None, None
 
     def new_item(self, **kwargs):
-        session = kwargs.get("session", None)
+        session = db
         if session is None:
             return False
         try:
@@ -110,7 +128,7 @@ class BaseController(object):
             return False
 
     def update_item(self, **kwargs):
-        session = kwargs.get("session", None)
+        session = db
         if session is None:
             return False
         try:
@@ -125,11 +143,12 @@ class BaseController(object):
             else:
                 return False
         except Exception as e:
+            session.rollback()
             logger.error(u"修改%s出错. %s, %s" % (self._model.__tablename__, e, kwargs))
             return False
 
     def delete_item(self, **kwargs):
-        session = kwargs.get("session", None)
+        session = db
         if session is None:
             return False
         try:
@@ -214,46 +233,6 @@ class BaseController(object):
                 _match(i, conf_attribute_list)
         else:
             _match(_input, conf_attribute_list)
-
-    def get_user_info(self):
-        try:
-            # 获取用户信息
-            user_data = requests.get(settings.USER_CENTER_API['user_url'], timeout=5).json()
-            user_info_list = user_data.get('data', [])
-            if user_info_list:
-                for item in user_info_list:
-                    item['username'] = item['email'].split('@')[0]
-        except Exception as e:
-            logger.error(u"获取用户信息异常. %s" % e)
-            user_info_list = []
-        return user_info_list
-
-    def get_single_user_info(self, user_id):
-        """返回单个用户ID信息"""
-        params = {"user_ids": user_id}
-        try:
-            # 获取用户信息
-            user_data = requests.get(settings.USER_CENTER_API['user_url'],
-                                     params=params, timeout=5).json()
-            single_user_info = user_data.get('data', [])[0]
-            if single_user_info:
-                single_user_info['username'] = single_user_info['email'].split('@')[0]
-        except Exception as e:
-            logger.error(u"获取用户信息异常. %s" % e)
-            single_user_info = {}
-        return single_user_info
-
-    def get_department_info(self, department_id):
-        params = {"department_id": department_id}
-        try:
-            # 获取用户信息
-            department_data = requests.get(settings.USER_CENTER_API['user_url'],
-                                           params=params, timeout=5).json()
-            department_info_list = department_data.get('data', [])
-        except Exception as e:
-            logger.error(u"获取用户信息异常. %s" % e)
-            department_info_list = []
-        return department_info_list
 
     def user_match(self, _input, match_key, attribute_list=None):
         """

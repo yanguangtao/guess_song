@@ -1,69 +1,50 @@
 #!/bin/env python
 # -*-coding:utf-8-*-
 
-import importlib
 
-from flask import Flask, url_for
-from flask_script import Manager, Shell, Server
+from common.game_handler import GameMessageHanlder
+import tornado.httpserver
+import tornado.web
+import tornado.websocket
+import tornado.ioloop
+import json
 
-from common.sqlalchemy_ctl import DBSession
-
-import restful_urls
-
-# modules 模块名称列表
-modules = [
-
-]
-
-app = Flask(__name__, static_url_path='/pluginserver/ops/static')
-
-def dispatch(item, restful=False):
-    def _dispatch(**kwargs):
-        obj = item[1]
-        kwargs["controller_obj"] = item[2]
-        kwargs["restful"] = restful
-        return obj(**kwargs).dispatch()
-    return _dispatch
-
-methods = ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"]
-
-for i in modules:
-    for j in getattr(importlib.import_module('%s.urls' % i), 'urls'):
-        url_prefix = "/%s/%s" % (i, j[0])
-        app.add_url_rule(url_prefix, url_prefix, dispatch(j), methods=methods)
-
-for i in restful_urls.urls:
-    _methods = methods
-    if len(i) == 4:
-        _methods = i[3]
-    url_prefix = "/%s" % i[0]
-    app.add_url_rule(url_prefix, url_prefix, dispatch(i, True), methods=_methods)
+from common.redis_ctl import redis_obj
 
 
-def _make_shell_context():
-    return {'app': app, 'dbsession': DBSession()}
+class GameHandler(tornado.websocket.WebSocketHandler):
 
-manager = Manager(app)
-manager.add_command("shell", Shell(make_context=_make_shell_context))
-manager.add_command("runserver", Server(host="0.0.0.0", port=7789, use_debugger=True))
+    def check_origin(self, origin):
+        return True
+
+    def open(self, *args, **kwargs):
+        print "connect"
+        self.application.handler.clients[str(id(self))] = self
+
+    def on_close(self):
+        self.application.handler.quit(self)
+
+    def on_message(self, message):
+        packet = json.loads(message)
+        self.application.handler.handle(self, packet)
 
 
-@manager.command
-def list_routes():
-    """ a helper method to list routes.
-        usage:  python server.py list_routes
-    """
-    import urllib
-    output = []
-    for rule in app.url_map.iter_rules():
-        options = {}
-        for arg in rule.arguments:
-            options[arg] = "[{0}]".format(arg)
-        url = url_for(rule.endpoint, **options)
-        line = urllib.unquote("{:50s} {:20s} {}".format(rule.endpoint, ','.join(rule.methods), url))
-        output.append(line)
-    for line in sorted(output):
-        print line
+class GameApplication(tornado.web.Application):
+    def __init__(self):
+        handlers = [
+            (r'/', GameHandler),
+        ]
+        self.handler = GameMessageHanlder()
+        super(GameApplication, self).__init__(handlers)
+
+
+def main():
+    http = tornado.httpserver.HTTPServer(GameApplication())
+    http.listen(8888)
+    tornado.ioloop.IOLoop.instance().start()
+
 
 if __name__ == '__main__':
-    manager.run()
+   main()
+
+

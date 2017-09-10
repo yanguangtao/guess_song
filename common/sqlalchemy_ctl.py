@@ -33,3 +33,4 @@ else:
         encoding='utf-8')
 
 DBSession = sessionmaker(bind=engine, expire_on_commit=False)
+db = DBSession()

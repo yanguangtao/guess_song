@@ -210,61 +210,12 @@ class BaseView(object):
             "msg": self._msg,
             "data": self._data
             })
-        logger.info("finish %s, ip: %s, url: %s, "
-                "method: %s, headers: %s, body: %s, cookie: %s "
-                "resp: %s. handle time: %s ms" %
-                (self.__class__.__name__,
-                    request.remote_addr,
-                    request.url,
-                    request.method,
-                    str(request.headers).replace("\r\n", ""),
-                    request.data.decode("utf-8"),
-                    request.cookies,
-                    self._resp_json,
-                    (time.time() - self.__start_time)*1000
-                    ))
         self._db_session.close()
         # if self._restful and self._ret != 0:
         #     return abort(error_msg.RET_CODE_MAP.get(self._ret, 500))
-        return Response(
-                response=self._resp_json,
-                headers={"Content-Type": "application/json"})
+        return self._resp_json
 
     def set_input_arguments(self, key, value):
         self._input[key] = str(value)
 
-    def get_input_arguments(self):
-        # 获取url参数和json参数
-        for i in request.values.keys():
-            self._input[i] = request.values[i].strip()
-        if request.headers.get("Content-Type", "").startswith("application/json") and request.data:
-            json_input = json.loads(request.data)
-            if not isinstance(json_input, dict):
-                return self._response(error_msg.PARAMS_ERROR)
-            self._input = dict(self._input, **json_input)
-        return self._input
-
-    def change_restful(self, restful=True):
-        self._restful = restful
-
-    def check_input_arguments(self,
-                              must_input=None,
-                              enable_input=None,
-                              disable_input=None):
-        if must_input is None and enable_input is None and disable_input is None:
-            return True
-        s = set(self._input.keys())
-        if must_input is not None:
-            if not set(must_input) <= s:
-                return False
-        if enable_input is not None:
-            y = set(enable_input)
-            if not y <= s:
-                return False
-            s = y
-        if disable_input is not None:
-            s = s - set(disable_input)
-        if enable_input is not None or disable_input is not None:
-            self._input = {i: self._input.get(i, None) for i in s}
-        return True
 

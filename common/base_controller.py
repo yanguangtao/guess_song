@@ -8,7 +8,7 @@ from sqlalchemy import desc, inspect, func
 
 from common import error_msg
 from common.my_log import logger
-from common.sqlalchemy_ctl import db
+from common.sqlalchemy_ctl import DBSession
 from conf import settings
 
 
@@ -19,6 +19,7 @@ class BaseController(object):
         self._ret, self._msg = error_msg.SUCCESS
         self._data = {}
         self._resp_json = ""
+        self.db = DBSession()
 
     def _clean_value(self, value):
         if isinstance(value, (str, unicode)):
@@ -35,7 +36,6 @@ class BaseController(object):
             "msg": self._msg,
             "data": self._data
             })
-        self._db_session.close()
         return self._resp_json
 
     def _filter_value(self, kwargs):
@@ -52,7 +52,7 @@ class BaseController(object):
         return password
 
     def do_filter(self, **kwargs):
-        session = db
+        session = self.db
         if session is None:
             return None
         pk = kwargs.get("id", None)
@@ -78,7 +78,7 @@ class BaseController(object):
             return None
 
     def filter_item(self, **kwargs):
-        session = db
+        session = self.db
         if session is None:
             return None, None
         start = int(kwargs.get("start", -1))
@@ -112,7 +112,7 @@ class BaseController(object):
             return None, None
 
     def new_item(self, **kwargs):
-        session = db
+        session = self.db
         if session is None:
             return False
         try:
@@ -128,7 +128,7 @@ class BaseController(object):
             return False
 
     def update_item(self, **kwargs):
-        session = db
+        session = self.db
         if session is None:
             return False
         try:
@@ -148,7 +148,7 @@ class BaseController(object):
             return False
 
     def delete_item(self, **kwargs):
-        session = db
+        session = self.db
         if session is None:
             return False
         try:
